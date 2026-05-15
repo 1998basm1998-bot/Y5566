@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Tech Art - Screen Share</title>
+    
+    <!-- استدعاء مكتبة PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <style>
+        /* المتغيرات الأساسية للتصميم الزجاجي */
+        :root {
+            --bg-color: #0f172a;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary-accent: #00d2ff;
+            --btn-shadow: #0088cc;
+        }
+
+        body {
+            /* خلفية ذات طابع حديث وداكن */
+            background: radial-gradient(circle at top right, #1e293b, #0f172a, #000000);
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* حاوية Glassmorphism */
+        .glass-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 40px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        h2, h3 {
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+
+        /* تصميم الأزرار 3D */
+        .btn-3d {
+            background: linear-gradient(135deg, var(--primary-accent), var(--btn-shadow));
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 6px 0 #005f99, 0 10px 15px rgba(0,0,0,0.4);
+            margin: 10px;
+            width: 80%;
+            max-width: 250px;
+        }
+
+        .btn-3d:active {
+            transform: translateY(6px);
+            box-shadow: 0 0px 0 #005f99, 0 5px 10px rgba(0,0,0,0.4);
+        }
+
+        .btn-3d.secondary {
+            background: linear-gradient(135deg, #475569, #334155);
+            box-shadow: 0 6px 0 #1e293b, 0 10px 15px rgba(0,0,0,0.4);
+        }
+
+        .btn-3d.secondary:active {
+            box-shadow: 0 0px 0 #1e293b, 0 5px 10px rgba(0,0,0,0.4);
+        }
+
+        /* حقول الإدخال وعرض النصوص الزجاجية */
+        .glass-input, .id-box {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            color: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            width: 80%;
+            font-size: 18px;
+            margin: 15px auto;
+            text-align: center;
+            box-sizing: border-box;
+            letter-spacing: 2px;
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+        }
+
+        /* حاوية الفيديو */
+        .video-wrapper {
+            margin-top: 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #000;
+            border: 1px solid var(--glass-border);
+        }
+
+        video {
+            width: 100%;
+            display: block;
+        }
+
+        /* التحكم بالظهور والاختفاء */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glass-container" id="mainContainer">
+        
+        <!-- القسم الأول: الشاشة الرئيسية -->
+        <div id="homeSection">
+            <h2>نظام البث المباشر</h2>
+            <button class="btn-3d" id="btnShareMode">مشاركة شاشتي (الطرف الأول)</button>
+            <button class="btn-3d secondary" id="btnWatchMode">مشاهدة شاشة (الطرف الثاني)</button>
+        </div>
+
+        <!-- القسم الثاني: شاشة البث (الطرف الأول) -->
+        <div id="shareSection" class="hidden">
+            <h3>رمز الاتصال الخاص بك</h3>
+            <div id="myIdDisplay" class="id-box">جاري توليد الرمز...</div>
+            <p style="color: #cbd5e1; font-size: 14px;">أعطِ هذا الرمز للطرف الثاني ليبدأ بالمشاهدة</p>
+            <button class="btn-3d secondary" id="btnStopShare">إيقاف ورجوع</button>
+        </div>
+
+        <!-- القسم الثالث: شاشة المشاهدة (الطرف الثاني) -->
+        <div id="watchSection" class="hidden">
+            <h3>أدخل رمز الطرف الأول</h3>
+            <input type="text" id="targetIdInput" class="glass-input" placeholder="مثال: abc-123">
+            <button class="btn-3d" id="btnConnect">بدء المشاهدة</button>
+            
+            <div class="video-wrapper hidden" id="videoContainer">
+                <video id="remoteVideo" autoplay playsinline controls></video>
+            </div>
+            
+            <button class="btn-3d secondary" id="btnStopWatch">إيقاف ورجوع</button>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * System Logic Configuration
+         * No structural changes to IDs/Classes without review.
+         */
+
+        // العناصر الأساسية (DOM Elements)
+        const homeSection = document.getElementById('homeSection');
+        const shareSection = document.getElementById('shareSection');
+        const watchSection = document.getElementById('watchSection');
+        
+        const btnShareMode = document.getElementById('btnShareMode');
+        const btnWatchMode = document.getElementById('btnWatchMode');
+        const btnConnect = document.getElementById('btnConnect');
+        
+        const myIdDisplay = document.getElementById('myIdDisplay');
+        const targetIdInput = document.getElementById('targetIdInput');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const videoContainer = document.getElementById('videoContainer');
+
+        // المتغيرات العامة
+        let peer = null;
+        let localStream = null;
+
+        // ---------------------------------------------------------
+        // وظائف الطرف الأول (مُشارك الشاشة)
+        // ---------------------------------------------------------
+        btnShareMode.addEventListener('click', async () => {
+            try {
+                // 1. طلب صلاحية التقاط الشاشة
+                localStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { cursor: "always" }, 
+                    audio: false 
+                });
+
+                // 2. تهيئة PeerJS للاتصال بالسيرفر المجاني وتوليد ID
+                peer = new Peer();
+                
+                peer.on('open', (id) => {
+                    myIdDisplay.innerText = id;
+                    switchView(homeSection, shareSection);
+                });
+
+                // 3. الاستماع لأي اتصال قادم من الطرف الثاني (إشارة اتصال)
+                peer.on('connection', (conn) => {
+                    // بمجرد وصول إشارة الطرف الثاني، نقوم بالاتصال به وإرسال فيديو الشاشة
+                    peer.call(conn.peer, localStream);
+                });
+
+                // إيقاف البث عند قيام المستخدم بإلغاء المشاركة من المتصفح نفسه
+                localStream.getVideoTracks()[0].onended = () => {
+                    resetSystem();
+                };
+
+            } catch (err) {
+                console.error("فشل الوصول للشاشة:", err);
+                alert("تم إلغاء أو فشل التقاط الشاشة.");
+            }
+        });
+
+        // ---------------------------------------------------------
+        // وظائف الطرف الثاني (المُشاهد)
+        // ---------------------------------------------------------
+        btnWatchMode.addEventListener('click', () => {
+            switchView(homeSection, watchSection);
+            
+            // تهيئة PeerJS للطرف الثاني ليكون جاهزاً لاستقبال البث
+            peer = new Peer();
+
+            // الاستماع لأي مكالمة فيديو (بث) قادمة
+            peer.on('call', (call) => {
+                call.answer(); // الرد على الاتصال (بدون إرسال كاميرا)
+                call.on('stream', (stream) => {
+                    // عرض الشاشة المستلمة في مشغل الفيديو
+                    videoContainer.classList.remove('hidden');
+                    remoteVideo.srcObject = stream;
+                });
+            });
+        });
+
+        // زر تنفيذ الاتصال بالطرف الأول
+        btnConnect.addEventListener('click', () => {
+            const targetId = targetIdInput.value.trim();
+            if (!targetId) {
+                alert("يرجى إدخال الرمز أولاً");
+                return;
+            }
+
+            // إرسال إشارة (Data Connection) للطرف الأول لإخباره أننا جاهزون
+            btnConnect.innerText = "جاري الاتصال...";
+            btnConnect.disabled = true;
+            peer.connect(targetId);
+        });
+
+        // ---------------------------------------------------------
+        // دوال مساعدة (Helper Functions)
+        // ---------------------------------------------------------
+        
+        // تبديل الواجهات
+        function switchView(hideSection, showSection) {
+            hideSection.classList.add('hidden');
+            showSection.classList.remove('hidden');
+        }
+
+        // تصفير النظام والعودة للرئيسية
+        function resetSystem() {
+            if (peer) {
+                peer.destroy();
+                peer = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            remoteVideo.srcObject = null;
+            videoContainer.classList.add('hidden');
+            targetIdInput.value = '';
+            btnConnect.innerText = "بدء المشاهدة";
+            btnConnect.disabled = false;
+            
+            shareSection.classList.add('hidden');
+            watchSection.classList.add('hidden');
+            homeSection.classList.remove('hidden');
+        }
+
+        // أزرار الرجوع
+        document.getElementById('btnStopShare').addEventListener('click', resetSystem);
+        document.getElementById('btnStopWatch').addEventListener('click', resetSystem);
+
+    </script>
+</body>
+</html>
