@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Tech Art - Screen Share</title>
+    <title>Modern Tech Art - Camera Share</title>
     
-    <!-- استدعاء مكتبة PeerJS -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
     <style>
-        /* المتغيرات الأساسية للتصميم الزجاجي */
+        /* نفس التصميم الزجاجي السابق */
         :root {
             --bg-color: #0f172a;
             --glass-bg: rgba(255, 255, 255, 0.05);
@@ -19,7 +18,6 @@
         }
 
         body {
-            /* خلفية ذات طابع حديث وداكن */
             background: radial-gradient(circle at top right, #1e293b, #0f172a, #000000);
             color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -30,7 +28,6 @@
             align-items: center;
         }
 
-        /* حاوية Glassmorphism */
         .glass-container {
             background: var(--glass-bg);
             backdrop-filter: blur(16px);
@@ -49,7 +46,6 @@
             font-weight: 600;
         }
 
-        /* تصميم الأزرار 3D */
         .btn-3d {
             background: linear-gradient(135deg, var(--primary-accent), var(--btn-shadow));
             color: #fff;
@@ -80,7 +76,6 @@
             box-shadow: 0 0px 0 #1e293b, 0 5px 10px rgba(0,0,0,0.4);
         }
 
-        /* حقول الإدخال وعرض النصوص الزجاجية */
         .glass-input, .id-box {
             background: rgba(0, 0, 0, 0.2);
             border: 1px solid var(--glass-border);
@@ -101,7 +96,6 @@
             box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
         }
 
-        /* حاوية الفيديو */
         .video-wrapper {
             margin-top: 20px;
             border-radius: 15px;
@@ -115,7 +109,6 @@
             display: block;
         }
 
-        /* التحكم بالظهور والاختفاء */
         .hidden {
             display: none !important;
         }
@@ -125,29 +118,31 @@
 
     <div class="glass-container" id="mainContainer">
         
-        <!-- القسم الأول: الشاشة الرئيسية -->
         <div id="homeSection">
-            <h2>نظام البث المباشر</h2>
-            <button class="btn-3d" id="btnShareMode">مشاركة شاشتي (الطرف الأول)</button>
-            <button class="btn-3d secondary" id="btnWatchMode">مشاهدة شاشة (الطرف الثاني)</button>
+            <h2>نظام البث المباشر (الكاميرا)</h2>
+            <button class="btn-3d" id="btnShareMode">بث الكاميرا (الطرف الأول)</button>
+            <button class="btn-3d secondary" id="btnWatchMode">مشاهدة البث (الطرف الثاني)</button>
         </div>
 
-        <!-- القسم الثاني: شاشة البث (الطرف الأول) -->
         <div id="shareSection" class="hidden">
             <h3>رمز الاتصال الخاص بك</h3>
             <div id="myIdDisplay" class="id-box">جاري توليد الرمز...</div>
             <p style="color: #cbd5e1; font-size: 14px;">أعطِ هذا الرمز للطرف الثاني ليبدأ بالمشاهدة</p>
+            
+            <div class="video-wrapper">
+                <video id="localVideo" autoplay playsinline muted></video>
+            </div>
+
             <button class="btn-3d secondary" id="btnStopShare">إيقاف ورجوع</button>
         </div>
 
-        <!-- القسم الثالث: شاشة المشاهدة (الطرف الثاني) -->
         <div id="watchSection" class="hidden">
             <h3>أدخل رمز الطرف الأول</h3>
             <input type="text" id="targetIdInput" class="glass-input" placeholder="مثال: abc-123">
             <button class="btn-3d" id="btnConnect">بدء المشاهدة</button>
             
             <div class="video-wrapper hidden" id="videoContainer">
-                <video id="remoteVideo" autoplay playsinline controls></video>
+                <video id="remoteVideo" autoplay playsinline></video>
             </div>
             
             <button class="btn-3d secondary" id="btnStopWatch">إيقاف ورجوع</button>
@@ -156,12 +151,6 @@
     </div>
 
     <script>
-        /**
-         * System Logic Configuration
-         * No structural changes to IDs/Classes without review.
-         */
-
-        // العناصر الأساسية (DOM Elements)
         const homeSection = document.getElementById('homeSection');
         const shareSection = document.getElementById('shareSection');
         const watchSection = document.getElementById('watchSection');
@@ -173,24 +162,24 @@
         const myIdDisplay = document.getElementById('myIdDisplay');
         const targetIdInput = document.getElementById('targetIdInput');
         const remoteVideo = document.getElementById('remoteVideo');
+        const localVideo = document.getElementById('localVideo');
         const videoContainer = document.getElementById('videoContainer');
 
-        // المتغيرات العامة
         let peer = null;
         let localStream = null;
 
-        // ---------------------------------------------------------
-        // وظائف الطرف الأول (مُشارك الشاشة)
-        // ---------------------------------------------------------
+        // الطرف الأول (البث)
         btnShareMode.addEventListener('click', async () => {
             try {
-                // 1. طلب صلاحية التقاط الشاشة
-                localStream = await navigator.mediaDevices.getDisplayMedia({ 
-                    video: { cursor: "always" }, 
-                    audio: false 
+                // *** التعديل هنا: استخدام getUserMedia لفتح الكاميرا بدلاً من الشاشة ***
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: true, // تفعيل الكاميرا (الأمامية عادة في الهواتف)
+                    audio: true  // تفعيل المايك (يمكنك جعلها false إذا لم ترد الصوت)
                 });
 
-                // 2. تهيئة PeerJS للاتصال بالسيرفر المجاني وتوليد ID
+                // عرض البث في شاشة الطرف الأول ليرى ماذا يصور
+                localVideo.srcObject = localStream;
+
                 peer = new Peer();
                 
                 peer.on('open', (id) => {
@@ -198,44 +187,32 @@
                     switchView(homeSection, shareSection);
                 });
 
-                // 3. الاستماع لأي اتصال قادم من الطرف الثاني (إشارة اتصال)
                 peer.on('connection', (conn) => {
-                    // بمجرد وصول إشارة الطرف الثاني، نقوم بالاتصال به وإرسال فيديو الشاشة
                     peer.call(conn.peer, localStream);
                 });
 
-                // إيقاف البث عند قيام المستخدم بإلغاء المشاركة من المتصفح نفسه
-                localStream.getVideoTracks()[0].onended = () => {
-                    resetSystem();
-                };
-
             } catch (err) {
-                console.error("فشل الوصول للشاشة:", err);
-                alert("تم إلغاء أو فشل التقاط الشاشة.");
+                console.error("فشل الوصول للكاميرا:", err);
+                alert("يرجى إعطاء المتصفح صلاحية الوصول للكاميرا.");
             }
         });
 
-        // ---------------------------------------------------------
-        // وظائف الطرف الثاني (المُشاهد)
-        // ---------------------------------------------------------
+        // الطرف الثاني (المشاهد)
         btnWatchMode.addEventListener('click', () => {
             switchView(homeSection, watchSection);
             
-            // تهيئة PeerJS للطرف الثاني ليكون جاهزاً لاستقبال البث
             peer = new Peer();
 
-            // الاستماع لأي مكالمة فيديو (بث) قادمة
             peer.on('call', (call) => {
-                call.answer(); // الرد على الاتصال (بدون إرسال كاميرا)
+                call.answer(); 
                 call.on('stream', (stream) => {
-                    // عرض الشاشة المستلمة في مشغل الفيديو
                     videoContainer.classList.remove('hidden');
                     remoteVideo.srcObject = stream;
                 });
             });
         });
 
-        // زر تنفيذ الاتصال بالطرف الأول
+        // زر الاتصال
         btnConnect.addEventListener('click', () => {
             const targetId = targetIdInput.value.trim();
             if (!targetId) {
@@ -243,23 +220,16 @@
                 return;
             }
 
-            // إرسال إشارة (Data Connection) للطرف الأول لإخباره أننا جاهزون
             btnConnect.innerText = "جاري الاتصال...";
             btnConnect.disabled = true;
             peer.connect(targetId);
         });
 
-        // ---------------------------------------------------------
-        // دوال مساعدة (Helper Functions)
-        // ---------------------------------------------------------
-        
-        // تبديل الواجهات
         function switchView(hideSection, showSection) {
             hideSection.classList.add('hidden');
             showSection.classList.remove('hidden');
         }
 
-        // تصفير النظام والعودة للرئيسية
         function resetSystem() {
             if (peer) {
                 peer.destroy();
@@ -271,6 +241,7 @@
             }
             
             remoteVideo.srcObject = null;
+            localVideo.srcObject = null;
             videoContainer.classList.add('hidden');
             targetIdInput.value = '';
             btnConnect.innerText = "بدء المشاهدة";
@@ -281,10 +252,8 @@
             homeSection.classList.remove('hidden');
         }
 
-        // أزرار الرجوع
         document.getElementById('btnStopShare').addEventListener('click', resetSystem);
         document.getElementById('btnStopWatch').addEventListener('click', resetSystem);
-
     </script>
 </body>
 </html>
